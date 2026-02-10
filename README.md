@@ -20,11 +20,12 @@ This software solves this issue by:
 To import this program to Fusion, follow these quick steps:
 1) Clone the repo and extract the folder.
 2) In Fusion go to `Utilities > Add-Ins` and click the icon. It should look like this:
-![alt text](/graphics/Screenshot%202026-02-10%20163238.png)
+![alt text](/Screenshot%202026-02-10%20163238.png)
 3) In the Add-in window, click the plus symbol. Then click `Script or add-in from device` and select the program folder.
 4) Click the dropdown on utilities and run the program in your file that you want to export.
-![alt text](/graphics/Screenshot%202026-02-10%20163830.png)
+![alt text](/Screenshot%202026-02-10%20163830.png)
 
 
 # Using the program
+
 NOTE: To use this program, you must have a parameterized model. In other words, changing your parameter(s) of interest will automatically update the model reflecting that specific change. If you are unfamiliar with parameterization, please find documentation on that before using the program.
