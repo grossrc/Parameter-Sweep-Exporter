@@ -1,0 +1,13 @@
+{
+    "autodeskProduct": "Fusion",
+    "type": "addin",
+    "id": "ParameterSweepExporter-001",
+    "author": "User",
+    "description": {
+        "": "Batch export parameterized models by sweeping parameter ranges and exporting every combination as STEP or STL files."
+    },
+    "version": "1.0.0",
+    "runOnStartup": false,
+    "supportedOS": "windows|mac",
+    "editEnabled": true
+}
