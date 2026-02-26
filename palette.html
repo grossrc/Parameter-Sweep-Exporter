@@ -340,6 +340,22 @@ window.addEventListener("DOMContentLoaded", () => {
                 }
                 PARAMS = data.parameters || [];
                 BODIES = data.bodies || [];
+
+                // Apply saved preferences (format + folder)
+                const prefs = data.prefs || {};
+                if (prefs.exportFormat) {
+                    const fmtSel = document.getElementById("exportFormat");
+                    for (let i = 0; i < fmtSel.options.length; i++) {
+                        if (fmtSel.options[i].value === prefs.exportFormat) {
+                            fmtSel.value = prefs.exportFormat;
+                            break;
+                        }
+                    }
+                }
+                if (prefs.outputFolder) {
+                    document.getElementById("outputFolder").value = prefs.outputFolder;
+                }
+
                 renderParams();
                 renderBodies();
             } catch (e) {

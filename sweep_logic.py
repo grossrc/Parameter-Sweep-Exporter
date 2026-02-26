@@ -19,6 +19,36 @@ import traceback
 from typing import Dict, List, Tuple
 
 # ---------------------------------------------------------------------------
+# Preferences persistence
+# ---------------------------------------------------------------------------
+
+_PREFS_PATH = os.path.join(os.path.dirname(__file__), "prefs.json")
+
+
+def _load_prefs() -> dict:
+    """Load saved preferences from disk. Returns {} on any failure."""
+    try:
+        with open(_PREFS_PATH, "r", encoding="utf-8") as f:
+            prefs = json.load(f)
+        # Validate: only keep folder if it still exists on disk
+        folder = prefs.get("outputFolder", "")
+        if folder and not os.path.isdir(folder):
+            prefs["outputFolder"] = ""
+        return prefs
+    except Exception:
+        return {}
+
+
+def _save_prefs(prefs: dict):
+    """Write preferences to disk (best-effort, never raises)."""
+    try:
+        with open(_PREFS_PATH, "w", encoding="utf-8") as f:
+            json.dump(prefs, f, indent=2)
+    except Exception:
+        pass
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -182,6 +212,7 @@ class _PaletteHTMLHandler(adsk.core.HTMLEventHandler):
                 # Page loaded – send parameter + body info to the page.
                 params = _collect_all_parameters(design)
                 bodies = _collect_all_bodies(design)
+                prefs = _load_prefs()
 
                 payload = json.dumps({
                     "parameters": params,
@@ -189,6 +220,7 @@ class _PaletteHTMLHandler(adsk.core.HTMLEventHandler):
                         {"path": path, "name": body.name}
                         for body, comp, path in bodies
                     ],
+                    "prefs": prefs,
                 })
                 args.returnData = payload
 
@@ -205,6 +237,13 @@ class _PaletteHTMLHandler(adsk.core.HTMLEventHandler):
             elif action == "submit":
                 # User clicked Export – stash configuration and close palette.
                 _cached_config = json.loads(data)
+
+                # Persist user preferences (format + folder)
+                _save_prefs({
+                    "exportFormat": _cached_config.get("format", "STEP"),
+                    "outputFolder": _cached_config.get("outputFolder", ""),
+                })
+
                 palette = ui.palettes.itemById(PALETTE_ID)
                 if palette:
                     palette.isVisible = False
