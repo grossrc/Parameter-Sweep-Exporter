@@ -17,15 +17,20 @@ This software solves this issue by:
 [![➡️YouTube video Demo⬅️](https://img.youtube.com/vi/IrVTPpV2GpY/0.jpg)](https://youtu.be/IrVTPpV2GpY)
 
 # Importing the program to Fusion
-To import this program to Fusion, follow these quick steps:
+## Option 1 (cleanest)
+1) Clone the repo and extract the .ZIP file
+2) Place the folder in your fusion scripts folder. It should be in the directory `C:\Users\yourUserName\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\Scripts`
+
+The program should automatically load into fusion. Go to `Utilities > Add-Ins` in the fusion program and enable the program called `ParameterSweepExporter`. You may have to restart the program for it to load.
+
+## Option 2 (garaunteed to work)
 1) Clone the repo and extract the folder.
 2) In Fusion go to `Utilities > Add-Ins` and click the icon. It should look like this:
-![alt text](/Screenshot%202026-02-10%20163238.png)
+![alt text](/resources/ScreenshotA.png.png)
 3) In the Add-in window, click the plus symbol. Then click `Script or add-in from device` and select the program folder.
 4) Click the dropdown on utilities and run the program in your file that you want to export.
-![alt text](/Screenshot%202026-02-10%20163830.png)
+![alt text](/resources/ScreenshotB.png)
 
 
-# Using the program
-
-NOTE: To use this program, you must have a parameterized model. In other words, changing your parameter(s) of interest will automatically update the model reflecting that specific change. If you are unfamiliar with parameterization, please find documentation on that before using the program.
+## NOTE
+To use this program, you must have a parameterized model. In other words, changing your parameter(s) of interest will automatically update the model reflecting that specific change. If you are unfamiliar with parameterization, please find documentation on that before using the program. This is a good introduction (https://www.youtube.com/watch?v=3GQHaYdmULs).
