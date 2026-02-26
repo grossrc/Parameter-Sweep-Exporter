@@ -21,7 +21,7 @@ This software solves this issue by:
 1) Clone the repo and extract the .ZIP file
 2) Place the unzipped folder in your fusion scripts folder. It should be in the directory `C:\Users\yourUserName\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\Scripts`
 
-The program will now automatically load into fusion. You may have to restart fusion or enable the add-in to begin using the program. Simply go to `Utilities > Add-Ins` in the fusion program and enable the program called `ParameterSweepExporter`.
+The program will now automatically load into fusion. You may have to restart fusion or enable the add-in (check box to run on startup) to begin using the program. Simply go to `Utilities > Add-Ins` in the fusion program and enable the program called `ParameterSweepExporter`.
 
 ## Option 2 (garaunteed to work)
 1) Clone the repo and extract the folder.
