@@ -352,6 +352,12 @@ def _run_export(ui: adsk.core.UserInterface, design: adsk.fusion.Design,
         if not output_folder:
             ui.messageBox("No output folder selected. Aborting.")
             return
+        if not os.path.isdir(output_folder):
+            ui.messageBox(
+                f"The output folder does not exist:\n{output_folder}\n\n"
+                "Please select a valid folder and try again."
+            )
+            return
         if not selected_params:
             ui.messageBox("No parameters selected. Aborting.")
             return
