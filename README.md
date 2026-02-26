@@ -26,7 +26,7 @@ The program will now automatically load into fusion. You may have to restart fus
 ## Option 2 (garaunteed to work)
 1) Clone the repo and extract the folder.
 2) In Fusion go to `Utilities > Add-Ins` and click the icon. It should look like this:
-![alt text](/resources/ScreenshotA.png.png)
+![alt text](/resources/ScreenshotA.png)
 3) In the Add-in window, click the plus symbol. Then click `Script or add-in from device` and select the program folder.
 4) Click the dropdown on utilities and run the program in your file that you want to export.
 ![alt text](/resources/ScreenshotB.png)
