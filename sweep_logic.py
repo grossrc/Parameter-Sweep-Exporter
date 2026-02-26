@@ -266,7 +266,7 @@ def on_command_created(args: adsk.core.CommandCreatedEventArgs, handlers: list):
         PALETTE_HEIGHT,
         True,   # useNewWebBrowser
     )
-    palette.dockingState = adsk.core.PaletteDockingStates.PaletteDockStateFloating
+    palette.dockingState = adsk.core.PaletteDockingStates.PaletteDockStateRight
 
     # Wire up event handlers
     html_handler = _PaletteHTMLHandler()
