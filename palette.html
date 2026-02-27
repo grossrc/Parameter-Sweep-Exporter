@@ -5,14 +5,14 @@
 <title>Parameter Sweep Exporter</title>
 <style>
     :root {
-        --bg:       #2d2d2d;
-        --bg-card:  #383838;
-        --bg-input: #1e1e1e;
-        --fg:       #dcdcdc;
-        --fg-dim:   #9e9e9e;
-        --accent:   #0078d4;
-        --accent-h: #1a8cff;
-        --border:   #555;
+        --bg:       #f0f0f0;
+        --bg-card:  #ffffff;
+        --bg-input: #f7f7f7;
+        --fg:       #1e1e1e;
+        --fg-dim:   #6e6e6e;
+        --accent:   #0696d7;
+        --accent-h: #0580b8;
+        --border:   #d4d4d4;
         --danger:   #d44;
         --success:  #4a4;
         --radius:   6px;
@@ -76,11 +76,11 @@
     }
     .param-table td {
         padding: 5px 8px;
-        border-bottom: 1px solid #444;
+        border-bottom: 1px solid #e0e0e0;
         vertical-align: middle;
     }
     .param-table tr:hover {
-        background: rgba(255,255,255,0.04);
+        background: rgba(0,0,0,0.03);
     }
     .param-table input[type="checkbox"] {
         width: 16px;
@@ -117,7 +117,7 @@
         cursor: pointer;
     }
     .body-item:hover {
-        background: rgba(255,255,255,0.06);
+        background: rgba(0,0,0,0.04);
     }
     .body-item label {
         cursor: pointer;
@@ -183,10 +183,10 @@
     }
     .btn-primary:hover { background: var(--accent-h); }
     .btn-secondary {
-        background: #555;
+        background: #e0e0e0;
         color: var(--fg);
     }
-    .btn-secondary:hover { background: #666; }
+    .btn-secondary:hover { background: #d0d0d0; }
     .btn-small {
         font-size: 12px;
         padding: 4px 10px;
@@ -216,7 +216,7 @@
     /* Scrollbar styling */
     ::-webkit-scrollbar { width: 8px; }
     ::-webkit-scrollbar-track { background: var(--bg); }
-    ::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: #bbb; border-radius: 4px; }
 </style>
 </head>
 <body>
