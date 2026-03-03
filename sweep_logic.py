@@ -459,7 +459,8 @@ def _run_export(ui: adsk.core.UserInterface, design: adsk.fusion.Design,
                     _export_stl(export_mgr, export_bodies, output_folder,
                                 base_name, design)
                 else:
-                    _export_step(export_mgr, output_folder, base_name, design)
+                    _export_step(export_mgr, export_bodies, output_folder,
+                                 base_name, design)
             except Exception as ex:
                 errors.append(f"Combo {idx+1}: {ex}")
 
@@ -491,11 +492,37 @@ def _run_export(ui: adsk.core.UserInterface, design: adsk.fusion.Design,
         ui.messageBox(f"Export error:\n{traceback.format_exc()}")
 
 
-def _export_step(export_mgr, output_folder, base_name, design):
-    """Export the entire design (or active bodies) as a STEP file."""
+def _export_step(export_mgr, bodies, output_folder, base_name, design):
+    """Export selected bodies as a STEP file.
+
+    ``createSTEPExportOptions`` does not accept individual BRepBodies
+    (only Component / Occurrence), so we temporarily hide every body
+    that is *not* in the selection, export the whole design, then
+    restore original visibility.
+    """
     filepath = os.path.join(output_folder, f"{base_name}.step")
-    options = export_mgr.createSTEPExportOptions(filepath)
-    export_mgr.execute(options)
+
+    # Collect ALL bodies in the design so we can toggle visibility
+    all_bodies = _collect_all_bodies(design)
+    selected_paths = {p for _b, _c, p in bodies}
+
+    # Remember original visibility and hide non-selected bodies
+    saved_visibility: list = []
+    for body, _comp, path in all_bodies:
+        saved_visibility.append((body, body.isLightBulbOn))
+        if path not in selected_paths:
+            body.isLightBulbOn = False
+
+    adsk.doEvents()
+
+    try:
+        options = export_mgr.createSTEPExportOptions(filepath)
+        export_mgr.execute(options)
+    finally:
+        # Restore original visibility no matter what
+        for body, was_on in saved_visibility:
+            body.isLightBulbOn = was_on
+        adsk.doEvents()
 
 
 def _export_stl(export_mgr, bodies, output_folder, base_name, design):
