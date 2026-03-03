@@ -34,3 +34,7 @@ The program will now automatically load into fusion. You may have to restart fus
 
 ## NOTE
 To use this program, you must have a parameterized model. In other words, changing your parameter(s) of interest will automatically update the model reflecting that specific change. If you are unfamiliar with parameterization, please find documentation on that before using the program. This is a good introduction (https://www.youtube.com/watch?v=3GQHaYdmULs).
+
+# Relevant Updates
+## 3 March 2026
+I created a new branch to allow explicit parameter values rather than defining a min/max range and a number of steps (which linearly interpolates values between two endpoints). For example, entering `2, 5, 10, 25` will export at exactly those four values — no more, no less.
