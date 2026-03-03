@@ -52,15 +52,6 @@ def _save_prefs(prefs: dict):
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _float_range(low: float, high: float, steps: int) -> List[float]:
-    """Return *steps* evenly-spaced values from *low* to *high* inclusive."""
-    if steps < 1:
-        return []
-    if steps == 1:
-        return [low]
-    return [low + i * (high - low) / (steps - 1) for i in range(steps)]
-
-
 def _sanitize(name: str) -> str:
     """Strip characters that are unsafe for file names."""
     return re.sub(r'[<>:"/\\|?*]', "_", name)
@@ -362,15 +353,12 @@ def _run_export(ui: adsk.core.UserInterface, design: adsk.fusion.Design,
             ui.messageBox("No parameters selected. Aborting.")
             return
 
-        # Build the axis values for each parameter
+        # Build the axis values for each parameter (explicit value lists)
         axes: List[Tuple[str, List[float], str]] = []
         for sp in selected_params:
             name = sp["name"]
-            low = float(sp["low"])
-            high = float(sp["high"])
-            steps = int(sp["steps"])
             unit = sp.get("unit", "")
-            vals = _float_range(low, high, steps)
+            vals = [float(v) for v in sp["values"]]
             axes.append((name, vals, unit))
 
         # Cartesian product of all axes

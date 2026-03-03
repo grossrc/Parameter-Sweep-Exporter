@@ -228,7 +228,8 @@
 <div class="section">
     <h2>Parameters <span class="badge" id="paramCount">0</span></h2>
     <p class="text-dim text-small mt-8" style="margin-bottom:8px;">
-        Only <strong>favorited (★)</strong> parameters are shown. To add a parameter here, right-click it in Fusion’s Parameters dialog and mark it as a favorite.
+        Only <strong>favorited (★)</strong> parameters are shown. To add a parameter here, right-click it in Fusion's Parameters dialog and mark it as a favorite.<br>
+        For each selected parameter, enter the exact values you want to sweep as a <strong>comma-separated list</strong> (e.g. <code>2, 3, 8, 9</code>).
     </p>
     <div style="overflow-x:auto;">
         <table class="param-table" id="paramTable">
@@ -238,9 +239,7 @@
                     <th>Name</th>
                     <th>Current</th>
                     <th>Unit</th>
-                    <th style="width:90px;">Low</th>
-                    <th style="width:90px;">High</th>
-                    <th style="width:70px;">Steps</th>
+                    <th>Values</th>
                 </tr>
             </thead>
             <tbody id="paramBody"></tbody>
@@ -319,7 +318,7 @@ function waitForAdsk(callback, attempts) {
         setTimeout(() => waitForAdsk(callback, attempts + 1), 100);
     } else {
         document.getElementById("paramBody").innerHTML =
-            '<tr><td colspan="7" style="color:#d44;padding:8px;">Timed out waiting for Fusion bridge (window.adsk). Try re-opening the palette.</td></tr>';
+            '<tr><td colspan="5" style="color:#d44;padding:8px;">Timed out waiting for Fusion bridge (window.adsk). Try re-opening the palette.</td></tr>';
     }
 }
 
@@ -329,13 +328,13 @@ window.addEventListener("DOMContentLoaded", () => {
             try {
                 if (!response) {
                     document.getElementById("paramBody").innerHTML =
-                        '<tr><td colspan="7" style="color:#d44;padding:8px;">No data returned from Fusion. The handler may have thrown an error.</td></tr>';
+                        '<tr><td colspan="5" style="color:#d44;padding:8px;">No data returned from Fusion. The handler may have thrown an error.</td></tr>';
                     return;
                 }
                 const data = JSON.parse(response);
                 if (data.error) {
                     document.getElementById("paramBody").innerHTML =
-                        '<tr><td colspan="7" style="color:#d44;padding:8px;">' + esc(data.error) + '</td></tr>';
+                        '<tr><td colspan="5" style="color:#d44;padding:8px;">' + esc(data.error) + '</td></tr>';
                     return;
                 }
                 PARAMS = data.parameters || [];
@@ -360,11 +359,11 @@ window.addEventListener("DOMContentLoaded", () => {
                 renderBodies();
             } catch (e) {
                 document.getElementById("paramBody").innerHTML =
-                    '<tr><td colspan="7" style="color:#d44;padding:8px;">Parse error: ' + esc(String(e)) + '</td></tr>';
+                    '<tr><td colspan="5" style="color:#d44;padding:8px;">Parse error: ' + esc(String(e)) + '</td></tr>';
             }
         }).catch(err => {
             document.getElementById("paramBody").innerHTML =
-                '<tr><td colspan="7" style="color:#d44;padding:8px;">fusionSendData failed: ' + esc(String(err)) + '</td></tr>';
+                '<tr><td colspan="5" style="color:#d44;padding:8px;">fusionSendData failed: ' + esc(String(err)) + '</td></tr>';
         });
     });
 });
@@ -375,7 +374,7 @@ function renderParams() {
     tbody.innerHTML = "";
     if (!PARAMS.length) {
         const tr = document.createElement("tr");
-        tr.innerHTML = `<td colspan="7" class="text-dim">No parameters found. Star/favorite parameters in Fusion or ensure a parametric design is active.</td>`;
+        tr.innerHTML = `<td colspan="5" class="text-dim">No parameters found. Star/favorite parameters in Fusion or ensure a parametric design is active.</td>`;
         tbody.appendChild(tr);
         document.getElementById("paramCount").textContent = 0;
         return;
@@ -390,12 +389,9 @@ function renderParams() {
             <td style="font-weight:600;">${favStar}${esc(p.name)}${typeTag}</td>
             <td class="text-dim">${esc(p.expression)}</td>
             <td class="text-dim">${esc(p.unit || "—")}</td>
-            <td><input type="number" id="low_${i}"  step="any" ${p.isFavorite ? '' : 'disabled'}
-                 value="${p.value}" onchange="updatePreview()" /></td>
-            <td><input type="number" id="high_${i}" step="any" ${p.isFavorite ? '' : 'disabled'}
-                 value="${p.value}" onchange="updatePreview()" /></td>
-            <td><input type="number" id="steps_${i}" min="1" step="1"
-                 ${p.isFavorite ? '' : 'disabled'} value="1" onchange="updatePreview()" /></td>
+            <td><input type="text" id="values_${i}" class="param-values"
+                 placeholder="e.g. 2, 3, 8, 9" ${p.isFavorite ? '' : 'disabled'}
+                 value="${p.value}" oninput="updatePreview()" /></td>
         `;
         tbody.appendChild(tr);
     });
@@ -404,9 +400,7 @@ function renderParams() {
 }
 
 function onParamToggle(idx, checked) {
-    document.getElementById(`low_${idx}`).disabled  = !checked;
-    document.getElementById(`high_${idx}`).disabled  = !checked;
-    document.getElementById(`steps_${idx}`).disabled = !checked;
+    document.getElementById(`values_${idx}`).disabled = !checked;
     updateParamCount();
     updatePreview();
 }
@@ -453,6 +447,11 @@ function updateBodyCount() {
 }
 
 /* ---------- Preview ---------- */
+function parseValues(str) {
+    // Split on commas, trim, filter blanks, parse as floats, drop NaN
+    return str.split(",").map(s => s.trim()).filter(s => s !== "").map(Number).filter(v => !isNaN(v));
+}
+
 function updatePreview() {
     const box = document.getElementById("previewBox");
     const selected = getSelectedParams();
@@ -461,30 +460,34 @@ function updatePreview() {
         return;
     }
 
+    // Check if any selected param has zero valid values
+    const hasEmpty = selected.some(s => s.values.length === 0);
+    if (hasEmpty) {
+        box.innerHTML = '<strong style="color:var(--danger);">One or more selected parameters have no valid numeric values.</strong>';
+        return;
+    }
+
     // Compute total combos
     let total = 1;
-    selected.forEach(s => total *= s.steps);
+    selected.forEach(s => total *= s.values.length);
 
-    // Show first few example names
+    // Show first & last example names
     const tpl = document.getElementById("namingTemplate").value;
     const fmt = document.getElementById("exportFormat").value.toLowerCase();
 
-    // Build first combo name as example
-    let exampleParts = [];
-    selected.forEach(s => {
-        exampleParts.push(`${s.name}_${formatNum(s.low)}`);
-    });
+    // First combo: first value of each param
+    let exParts1 = [];
+    selected.forEach(s => exParts1.push(`${s.name}_${formatNum(s.values[0])}`));
     const exName1 = tpl
-        ? applyTemplate(tpl, selected, selected.map(s => s.low))
-        : exampleParts.join("__");
+        ? applyTemplate(tpl, selected, selected.map(s => s.values[0]))
+        : exParts1.join("__");
 
-    let exampleParts2 = [];
-    selected.forEach(s => {
-        exampleParts2.push(`${s.name}_${formatNum(s.high)}`);
-    });
+    // Last combo: last value of each param
+    let exParts2 = [];
+    selected.forEach(s => exParts2.push(`${s.name}_${formatNum(s.values[s.values.length - 1])}`));
     const exName2 = tpl
-        ? applyTemplate(tpl, selected, selected.map(s => s.high))
-        : exampleParts2.join("__");
+        ? applyTemplate(tpl, selected, selected.map(s => s.values[s.values.length - 1]))
+        : exParts2.join("__");
 
     box.innerHTML = `
         <strong>Total combinations:</strong> ${total}<br>
@@ -503,12 +506,11 @@ function getSelectedParams() {
     const result = [];
     document.querySelectorAll(".param-check:checked").forEach(cb => {
         const i = parseInt(cb.dataset.idx);
+        const raw = document.getElementById(`values_${i}`).value;
         result.push({
-            name:  PARAMS[i].name,
-            unit:  PARAMS[i].unit || "",
-            low:   parseFloat(document.getElementById(`low_${i}`).value) || 0,
-            high:  parseFloat(document.getElementById(`high_${i}`).value) || 0,
-            steps: parseInt(document.getElementById(`steps_${i}`).value) || 1,
+            name:   PARAMS[i].name,
+            unit:   PARAMS[i].unit || "",
+            values: parseValues(raw),
         });
     });
     return result;
@@ -569,6 +571,14 @@ function doExport() {
 
     if (!params.length) { alert("Select at least one parameter."); return; }
     if (!folder)        { alert("Enter an output folder path.");    return; }
+
+    // Validate that every selected parameter has at least one numeric value
+    for (const p of params) {
+        if (!p.values.length) {
+            alert(`Parameter "${p.name}" has no valid numeric values.\nEnter comma-separated numbers (e.g. 2, 3, 8, 9).`);
+            return;
+        }
+    }
 
     const payload = JSON.stringify({
         params:          params,
