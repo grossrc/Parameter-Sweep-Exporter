@@ -14,7 +14,8 @@ This software solves this issue by:
 - Integrating into Fusion's native program environment.
 - Custom naming schemes
 
-[![➡️YouTube video Demo⬅️](https://img.youtube.com/vi/IrVTPpV2GpY/0.jpg)](https://youtu.be/IrVTPpV2GpY)
+
+[![➡️YouTube video Demo⬅️](https://img.youtube.com/vi/-J-PXhrnZgY/0.jpg)](https://youtu.be/-J-PXhrnZgY)
 
 # Importing the program to Fusion
 ## Option 1 (cleanest)
