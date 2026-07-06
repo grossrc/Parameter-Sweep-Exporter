@@ -167,6 +167,33 @@ def _collect_all_bodies(design: adsk.fusion.Design):
     return results
 
 
+def _collect_all_sketches(design: adsk.fusion.Design):
+    """Walk the component tree and return [(sketch, component, path)] for
+    every Sketch in the design.  Uses indexed access for reliability."""
+    results = []
+
+    def _walk(occ_path: str, comp: adsk.fusion.Component):
+        try:
+            sketch_list = comp.sketches
+            for i in range(sketch_list.count):
+                sketch = sketch_list.item(i)
+                full = f"{occ_path}/{sketch.name}" if occ_path else sketch.name
+                results.append((sketch, comp, full))
+        except Exception:
+            pass
+        try:
+            occs = comp.occurrences
+            for i in range(occs.count):
+                occ = occs.item(i)
+                child_path = f"{occ_path}/{occ.name}" if occ_path else occ.name
+                _walk(child_path, occ.component)
+        except Exception:
+            pass
+
+    _walk("", design.rootComponent)
+    return results
+
+
 # ---------------------------------------------------------------------------
 # Palette / HTML-based command (simpler & more flexible than table inputs)
 # ---------------------------------------------------------------------------
@@ -209,9 +236,10 @@ class _PaletteHTMLHandler(adsk.core.HTMLEventHandler):
                     })
                     return
 
-                # Page loaded – send parameter + body info to the page.
+                # Page loaded – send parameter + body + sketch info to the page.
                 params = _collect_all_parameters(design)
                 bodies = _collect_all_bodies(design)
+                sketches = _collect_all_sketches(design)
                 prefs = _load_prefs()
 
                 payload = json.dumps({
@@ -219,6 +247,10 @@ class _PaletteHTMLHandler(adsk.core.HTMLEventHandler):
                     "bodies": [
                         {"path": path, "name": body.name}
                         for body, comp, path in bodies
+                    ],
+                    "sketches": [
+                        {"path": path, "name": sketch.name}
+                        for sketch, comp, path in sketches
                     ],
                     "prefs": prefs,
                 })
@@ -238,10 +270,12 @@ class _PaletteHTMLHandler(adsk.core.HTMLEventHandler):
                 # User clicked Export – stash configuration and close palette.
                 _cached_config = json.loads(data)
 
-                # Persist user preferences (format + folder)
+                # Persist user preferences (format + folder + DXF options)
                 _save_prefs({
                     "exportFormat": _cached_config.get("format", "STEP"),
                     "outputFolder": _cached_config.get("outputFolder", ""),
+                    "includeConstruction": _cached_config.get("includeConstruction", False),
+                    "includeProjected": _cached_config.get("includeProjected", False),
                 })
 
                 palette = ui.palettes.itemById(PALETTE_ID)
@@ -347,7 +381,11 @@ def _run_export(ui: adsk.core.UserInterface, design: adsk.fusion.Design,
         export_format: str = config.get("format", "STEP").upper()
         selected_params: list = config.get("params", [])
         selected_body_paths: list = config.get("bodies", [])
+        selected_sketch_paths: list = config.get("sketches", [])
+        include_construction: bool = bool(config.get("includeConstruction", False))
+        include_projected: bool = bool(config.get("includeProjected", False))
         naming_template: str = config.get("namingTemplate", "")
+        is_dxf = export_format == "DXF"
 
         if not output_folder:
             ui.messageBox("No output folder selected. Aborting.")
@@ -389,20 +427,34 @@ def _run_export(ui: adsk.core.UserInterface, design: adsk.fusion.Design,
         if confirm != adsk.core.DialogResults.DialogYes:
             return
 
-        # Resolve body references (match by path string)
-        all_bodies = _collect_all_bodies(design)
+        # Resolve export targets: sketches for DXF, bodies otherwise
         export_bodies = []
-        if selected_body_paths:
-            path_set = set(selected_body_paths)
-            for body, comp, path in all_bodies:
+        export_sketches = []
+        if is_dxf:
+            # Resolve sketch references (match by path string)
+            all_sketches = _collect_all_sketches(design)
+            path_set = set(selected_sketch_paths)
+            for sketch, comp, path in all_sketches:
                 if path in path_set:
-                    export_bodies.append((body, comp, path))
-        else:
-            export_bodies = all_bodies  # export everything
+                    export_sketches.append((sketch, comp, path))
 
-        if not export_bodies:
-            ui.messageBox("No matching bodies found. Aborting.")
-            return
+            if not export_sketches:
+                ui.messageBox("No matching sketches found. Aborting.")
+                return
+        else:
+            # Resolve body references (match by path string)
+            all_bodies = _collect_all_bodies(design)
+            if selected_body_paths:
+                path_set = set(selected_body_paths)
+                for body, comp, path in all_bodies:
+                    if path in path_set:
+                        export_bodies.append((body, comp, path))
+            else:
+                export_bodies = all_bodies  # export everything
+
+            if not export_bodies:
+                ui.messageBox("No matching bodies found. Aborting.")
+                return
 
         # Grab all parameters by name for quick access
         all_params: Dict[str, adsk.fusion.Parameter] = {}
@@ -458,6 +510,9 @@ def _run_export(ui: adsk.core.UserInterface, design: adsk.fusion.Design,
                 if export_format == "STL":
                     _export_stl(export_mgr, export_bodies, output_folder,
                                 base_name, design)
+                elif is_dxf:
+                    _export_dxf(export_sketches, output_folder, base_name,
+                                include_construction, include_projected)
                 else:
                     _export_step(export_mgr, export_bodies, output_folder,
                                  base_name, design)
@@ -543,3 +598,66 @@ def _export_stl(export_mgr, bodies, output_folder, base_name, design):
             options = export_mgr.createSTLExportOptions(body, filepath)
             options.meshRefinement = adsk.fusion.MeshRefinementSettings.MeshRefinementMedium
             export_mgr.execute(options)
+
+
+def _save_sketch_as_dxf(sketch: adsk.fusion.Sketch, filepath: str,
+                        include_construction: bool, include_projected: bool):
+    """Save a single sketch as DXF, optionally filtering out construction
+    and/or projected (reference) geometry.
+
+    ``Sketch.saveAsDXF`` always exports every curve in the sketch, so when
+    filtering is requested we copy only the wanted curves into a temporary
+    sketch, export that, and delete it afterwards.
+    """
+    if include_construction and include_projected:
+        sketch.saveAsDXF(filepath)
+        return
+
+    comp = sketch.parentComponent
+    temp_sketch = comp.sketches.add(comp.xYConstructionPlane)
+    try:
+        entities = adsk.core.ObjectCollection.create()
+        curves = sketch.sketchCurves
+        for i in range(curves.count):
+            curve = curves.item(i)
+            try:
+                if not include_construction and curve.isConstruction:
+                    continue
+                if not include_projected and curve.isReference:
+                    continue
+            except Exception:
+                pass
+            entities.add(curve)
+
+        if entities.count > 0:
+            # Identity transform keeps curves in sketch-space coordinates,
+            # matching what saveAsDXF produces for the original sketch.
+            transform = adsk.core.Matrix3D.create()
+            sketch.copy(entities, transform, temp_sketch)
+
+        temp_sketch.saveAsDXF(filepath)
+    finally:
+        try:
+            temp_sketch.deleteMe()
+        except Exception:
+            pass
+        adsk.doEvents()
+
+
+def _export_dxf(sketches, output_folder, base_name,
+                include_construction, include_projected):
+    """Export each selected sketch as a 2D DXF profile (one file per sketch,
+    with the sketch name appended when multiple are selected)."""
+    if len(sketches) == 1:
+        sketch, comp, path = sketches[0]
+        filepath = os.path.join(output_folder, f"{base_name}.dxf")
+        _save_sketch_as_dxf(sketch, filepath,
+                            include_construction, include_projected)
+    else:
+        for sketch, comp, path in sketches:
+            sketch_label = _sanitize(sketch.name)
+            filepath = os.path.join(
+                output_folder, f"{base_name}__{sketch_label}.dxf"
+            )
+            _save_sketch_as_dxf(sketch, filepath,
+                                include_construction, include_projected)

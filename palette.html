@@ -249,7 +249,7 @@
 </div>
 
 <!-- ====== BODIES ====== -->
-<div class="section">
+<div class="section" id="bodiesSection">
     <h2>Bodies to Export <span class="badge" id="bodyCount">0</span></h2>
     <p class="text-dim text-small" style="margin-bottom:8px;">
         Select the bodies you want included in each export. If none are selected, the full design is exported (STEP) or all bodies (STL).
@@ -261,15 +261,39 @@
     <div class="body-list" id="bodyList"></div>
 </div>
 
+<!-- ====== SKETCHES (DXF) ====== -->
+<div class="section" id="sketchesSection" style="display:none;">
+    <h2>Sketches to Export <span class="badge" id="sketchCount">0</span></h2>
+    <p class="text-dim text-small" style="margin-bottom:8px;">
+        Select the sketch(es) to export as 2D DXF profiles. Each sketch produces its own DXF file.
+    </p>
+    <div style="margin-bottom:6px;">
+        <button class="btn-small btn-secondary" onclick="selectAllSketches(true)">Select All</button>
+        <button class="btn-small btn-secondary" onclick="selectAllSketches(false)">Deselect All</button>
+    </div>
+    <div class="body-list" id="sketchList"></div>
+    <div style="margin-top:10px; display:flex; gap:18px;">
+        <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:13px;">
+            <input type="checkbox" id="includeConstruction" style="width:15px;height:15px;accent-color:var(--accent);" />
+            Include construction geometry
+        </label>
+        <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:13px;">
+            <input type="checkbox" id="includeProjected" style="width:15px;height:15px;accent-color:var(--accent);" />
+            Include projected geometry
+        </label>
+    </div>
+</div>
+
 <!-- ====== EXPORT SETTINGS ====== -->
 <div class="section">
     <h2>Export Settings</h2>
     <div class="settings-grid three">
         <div class="field">
             <label>File Format</label>
-            <select id="exportFormat">
+            <select id="exportFormat" onchange="onFormatChange()">
                 <option value="STEP">STEP (.step)</option>
                 <option value="STL">STL (.stl)</option>
+                <option value="DXF">DXF 2D profile (.dxf)</option>
             </select>
         </div>
         <div class="field" style="grid-column: span 2;">
@@ -307,6 +331,7 @@
 
 let PARAMS = [];
 let BODIES = [];
+let SKETCHES = [];
 
 // On load, request data from the add-in
 // The adsk object is injected asynchronously by Fusion's browser control,
@@ -340,6 +365,7 @@ window.addEventListener("DOMContentLoaded", () => {
                 }
                 PARAMS = data.parameters || [];
                 BODIES = data.bodies || [];
+                SKETCHES = data.sketches || [];
 
                 // Apply saved preferences (format + folder)
                 const prefs = data.prefs || {};
@@ -355,9 +381,17 @@ window.addEventListener("DOMContentLoaded", () => {
                 if (prefs.outputFolder) {
                     document.getElementById("outputFolder").value = prefs.outputFolder;
                 }
+                if (prefs.includeConstruction) {
+                    document.getElementById("includeConstruction").checked = true;
+                }
+                if (prefs.includeProjected) {
+                    document.getElementById("includeProjected").checked = true;
+                }
 
                 renderParams();
                 renderBodies();
+                renderSketches();
+                onFormatChange();
             } catch (e) {
                 document.getElementById("paramBody").innerHTML =
                     '<tr><td colspan="7" style="color:#d44;padding:8px;">Parse error: ' + esc(String(e)) + '</td></tr>';
@@ -452,6 +486,50 @@ function updateBodyCount() {
     document.getElementById("bodyCount").textContent = n;
 }
 
+/* ---------- Render sketch checkboxes ---------- */
+function renderSketches() {
+    const list = document.getElementById("sketchList");
+    list.innerHTML = "";
+    if (!SKETCHES.length) {
+        const div = document.createElement("div");
+        div.className = "text-dim";
+        div.style.padding = "4px 6px";
+        div.textContent = "No sketches found in the active design.";
+        list.appendChild(div);
+        document.getElementById("sketchCount").textContent = 0;
+        return;
+    }
+    SKETCHES.forEach((s, i) => {
+        const div = document.createElement("div");
+        div.className = "body-item";
+        div.innerHTML = `
+            <input type="checkbox" class="sketch-check" data-idx="${i}"
+                   id="sketch_${i}" onchange="updateSketchCount()" />
+            <label for="sketch_${i}">${esc(s.path)}</label>
+        `;
+        list.appendChild(div);
+    });
+    updateSketchCount();
+}
+
+function selectAllSketches(state) {
+    document.querySelectorAll(".sketch-check").forEach(cb => cb.checked = state);
+    updateSketchCount();
+}
+
+function updateSketchCount() {
+    const n = document.querySelectorAll(".sketch-check:checked").length;
+    document.getElementById("sketchCount").textContent = n;
+}
+
+/* ---------- Format toggle (bodies vs sketches) ---------- */
+function onFormatChange() {
+    const isDxf = document.getElementById("exportFormat").value === "DXF";
+    document.getElementById("bodiesSection").style.display   = isDxf ? "none" : "";
+    document.getElementById("sketchesSection").style.display = isDxf ? "" : "none";
+    updatePreview();
+}
+
 /* ---------- Preview ---------- */
 function updatePreview() {
     const box = document.getElementById("previewBox");
@@ -523,6 +601,15 @@ function getSelectedBodies() {
     return result;
 }
 
+function getSelectedSketches() {
+    const result = [];
+    document.querySelectorAll(".sketch-check:checked").forEach(cb => {
+        const i = parseInt(cb.dataset.idx);
+        result.push(SKETCHES[i].path);
+    });
+    return result;
+}
+
 function formatNum(v) {
     return parseFloat(v.toFixed(6)).toString();
 }
@@ -561,21 +648,30 @@ function browseFolder() {
 
 /* ---------- Submit / Cancel ---------- */
 function doExport() {
-    const params  = getSelectedParams();
-    const bodies  = getSelectedBodies();
-    const folder  = document.getElementById("outputFolder").value.trim();
-    const fmt     = document.getElementById("exportFormat").value;
-    const tpl     = document.getElementById("namingTemplate").value.trim();
+    const params   = getSelectedParams();
+    const bodies   = getSelectedBodies();
+    const sketches = getSelectedSketches();
+    const folder   = document.getElementById("outputFolder").value.trim();
+    const fmt      = document.getElementById("exportFormat").value;
+    const tpl      = document.getElementById("namingTemplate").value.trim();
+    const isDxf    = fmt === "DXF";
 
     if (!params.length) { alert("Select at least one parameter."); return; }
     if (!folder)        { alert("Enter an output folder path.");    return; }
+    if (isDxf && !sketches.length) {
+        alert("Select at least one sketch to export as DXF.");
+        return;
+    }
 
     const payload = JSON.stringify({
-        params:          params,
-        bodies:          bodies,
-        outputFolder:    folder,
-        format:          fmt,
-        namingTemplate:  tpl,
+        params:              params,
+        bodies:              bodies,
+        sketches:            sketches,
+        outputFolder:        folder,
+        format:              fmt,
+        namingTemplate:      tpl,
+        includeConstruction: document.getElementById("includeConstruction").checked,
+        includeProjected:    document.getElementById("includeProjected").checked,
     });
 
     window.adsk && adsk.fusionSendData("submit", payload);
