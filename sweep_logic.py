@@ -124,6 +124,9 @@ def _collect_all_parameters(design: adsk.fusion.Design):
         except Exception:
             display_value = raw_value
 
+        # Round to eliminate floating-point artifacts (e.g., 0.4000000000000001 → 0.4)
+        display_value = round(display_value, 10)
+
         try:
             is_user = p.objectType == adsk.fusion.UserParameter.classType()
         except Exception:
